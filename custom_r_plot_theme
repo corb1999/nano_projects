@@ -1,12 +1,13 @@
   # Custom theme by CORB inspo from cyberpunk 2077
-  # Add as a layer to a ggplot
+# Either use the theme_set below or manually copy the theme mods into a ggplot layer
+corb77 <- theme_bw() +
   theme(# Background and grid
         plot.background = element_rect(
           fill = "#1b1b1b", colour = "#d64437", 
           size = 0.5, linetype = "dashed"), 
         panel.background = element_rect(
           fill = "#1b1b1b"), 
-        # Mod this element to change the gridlines
+        # Mod this element to change the gridlines, just change colour to NA and delete other args
         panel.grid.major = element_line(
           colour = "#d64437", linetype = "dashed", 
           size = 0.5),
@@ -32,9 +33,24 @@
           colour = "#d64437", size = rel(1.3), 
           hjust = 1), 
         axis.ticks.length = unit(0.2, "cm"), 
-        # Legend mods
-        legend.justification = "top", 
-        legend.box.background = element_rect(
-          fill = "#1b1b1b", colour = "#d64437")
+    # Legend mods
+    legend.justification = "top", 
+    legend.box.background = element_rect(
+      fill = "#1b1b1b", colour = "#d64437"), 
+    legend.key = element_rect(
+      fill = "#1b1b1b", colour = "#d64437"), 
+    legend.background = element_rect(
+      fill = "#1b1b1b", colour = "#d64437"), 
+    legend.text = element_text(
+      colour = "#d64437"), 
+    legend.title = element_text(
+      colour = "#d64437"), 
+    # Facet modifications
+    strip.background = element_rect(
+      fill = "#1b1b1b", colour = "#d64437"), 
+    strip.text = element_text(
+      colour = "#d64437")
         )
-
+theme_set(corb77)
+# Any following plot will have the above theme called corb77
+# To alter theme, do theme_set(theme_bw())
