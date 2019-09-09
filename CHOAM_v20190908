@@ -1,0 +1,344 @@
+
+# 'God created Arrakis to train the faithful'
+# Prototype 1 v20190908
+
+# LOAD LIBRARIES -----------------------------------------------------------
+library(tidyverse)
+library(tidylog)
+library(lubridate)
+library(reshape2)
+clock_a <- now()
+options(digits = 2, max.print = 99)
+# LOAD LIBRARIES ^^^ -----------------------------------------------------------
+
+# NOTES AND DESIGN ---------------------------------------------------------
+
+# SCRIPT NOTES :::::::::::::::::::::::::::::::::::::::::::::::::::::
+# This script is a simulation to generate synthetic data for CHOAM, which
+#   is a fictional conglomerate/cartel from the Dune universe. CHOAM is 
+#   based loosely on OPEC, and the cartel is controlled by major houses 
+#   which are dynastic. The events of the Dune books dramatically impact
+#   CHOAM so this synthetic data poduced should pretend to simulate the
+#   cartel way before the events of Dune
+# The purpose of this is to practice using map calls and to practice R
+#   programming and simulation in R
+
+# DESIGN NOTES :::::::::::::::::::::::::::::::::::::::::::::::::
+# Simulate X years of revenue and expenses
+# All dollar figures will be assumed to be in trillions
+# 123 great houses, and assuming they have their own planet
+# Typical planet annual GDP is 85 trillion per Earth 2018 GDP
+# Each house/planet has its own revenue/expense/profit measure each period
+
+
+# NOTES AND DESIGN ^^^ ---------------------------------------------------------
+
+# FUNCTIONS ----------------------------------------------------------------
+
+# Takes a revenue value as an input and returns a random expense
+ExpenseFunction <- function(x) {
+  return(
+    rnorm(n = 1, mean = x - 2, 
+               sd = rnorm(n = 1, mean = 10, sd = 1))
+         )
+}
+
+# Applies a modifier to a random selection of houses to give them high revenue
+WildModFactor <- function(x) {
+  return(
+    x * sample(wild_mods, 1)
+         )
+}
+
+# Used in a map call, this function takes a year as an input and generates
+#   a volatile trend of values which will ultimately be used as multipliers
+#   to a house's typical revenue value
+# Changing the function in this function will produce different types of
+#   revenue patterns for the housess
+YearFunction0 <- function(x) {
+  return(
+    cos(x / sample(500:1500, 1)) + 
+      log10(x) / 5 + 
+      0.8 * sin(x / sample(500:1500, 1)) 
+  )
+}
+
+# A bounding function to contain the YearFunction0, but not needed in
+#   this prototype. May be needed in future versions
+YearFunction1 <- function(x) {
+  if (abs(YearFunction0(x)) > 10) {
+    return(sample(-1:1, 1)
+           )
+  } else {
+    return(YearFunction0(x)
+           )
+  }
+}
+
+# FUNCTIONS ^^^ -------------------------------------------------------------
+
+# INITIAL SETUP --------------------------------------------------------
+
+# Read a CSV file of all houses taken from a Dune wiki
+yy <- read.csv("DUNE_HOUSES.csv")
+
+# Generate 123 random typical revenue values, 
+#   one for each house to have as baseline revenue
+pp <- rpois(n = length(yy$surname), 
+            lambda = c(rep(seq(85, 20, by = -5), 5), 
+                       rnorm(n = 500, mean = 30, sd = 5)
+                       )
+            )
+
+# Randomly pick N rows for a special mod, just to keep things interesting
+wild <- c(sample(1:nrow(yy), 17, replace = FALSE))
+
+# Creates a vector of mod factors that can be randomly picked from
+wild_mods <- c(seq(0.4, 2.4, by = 0.1))
+
+
+# INITIAL SETUP ^^^ --------------------------------------------------------
+
+# HOUSE MASTER TEMPLATE --------------------------------------------------
+
+# Creates a DF of each house and its revenue, expenses, profit
+dune <- cbind(yy, pp) %>% tbl_df() %>% 
+  select(house = surname, typical_rev = pp) %>% 
+  mutate(typical_exp = map_dbl(typical_rev, ExpenseFunction), 
+         typical_profit = typical_rev - typical_exp)
+# Notes:
+# Later on the ultimate revenue, expenses and profit will change
+# This is more of a proof of concept than anything. This is not the sim data
+
+# Applies a random revenue modifier to a random subset of houses
+d2 <- dune %>% 
+  mutate(rowID = c(1:nrow(yy))) %>% 
+  filter(rowID %in% wild) %>% 
+  mutate(typical_rev = map_dbl(typical_rev, WildModFactor), 
+         typical_profit = typical_rev - typical_exp) %>% 
+  select(-rowID)
+# NOTES:
+# Map function applies a randomly generated mod factor
+
+# Brings the randomly modified houses back into the core DF
+dune <- anti_join(dune, d2, by = 'house') %>% 
+  rbind(., d2) %>% 
+  mutate(profitable = ifelse(typical_profit >= 0, 1, 0)) %>% 
+  arrange(house)
+dune
+rm(d2, yy, pp, wild, wild_mods)
+# NOTES:
+# Anti-join strips the d2 records from dune so they can be added in the rbind
+
+# Cleanup
+ls()
+gc(verbose = TRUE)
+
+
+# HOUSE MASTER TEMPLATE ^^^ --------------------------------------------------
+
+# SUMMARY STATISTICS 1 -----------------------------------------------------
+
+summary(dune[,2:4])
+cor(dune$typical_rev, dune$typical_exp)
+table(dune$profitable)
+
+
+# SUMMARY STATISTICS 1 ^^^ -----------------------------------------------------
+
+# VIZ1 ----------------------------------------------------------------
+par(mfrow = c(2, 2))
+hist(dune$typical_rev)
+hist(dune$typical_exp)
+hist(dune$typical_profit)
+plot(x = dune$typical_rev, y = dune$typical_exp)
+par(mfrow = c(1, 1))
+
+plt1 <- dune %>% mutate(profit = as.factor(profitable)) %>% 
+  ggplot(aes(x = typical_rev, y = typical_exp)) + 
+  geom_point(color = "#ffad4a", alpha = 0.75) + 
+  geom_abline(aes(slope = 1, intercept = 0)) + 
+  theme_bw()
+plt1
+rm(plt1)
+
+plt2 <- dune %>% mutate(profit = as.factor(profitable)) %>% 
+  ggplot(aes(x = typical_rev, y = typical_exp, color = profit)) + 
+  geom_point(alpha = 0.75) + 
+  geom_abline(aes(slope = 1, intercept = 0)) + 
+  theme_bw()
+plt2
+rm(plt2)
+
+
+# VIZ1 ^^^ ----------------------------------------------------------------
+
+# BUILD YEARS -------------------------------------------------------------
+
+# Creating a sequence that will create a mod factor across time
+# This determins how many years of data each house will get
+# A large range here can cause significant computation in the scipt
+yrs <- seq(3000, 4999, 1)
+length(yrs)
+
+# Number of records that will be produced in this stage
+# Beware large values
+length(yrs) * length(dune$house)
+
+# Creating a sequence of the houses that is the same length as the yrs
+h_key <- rep(dune$house, length(yrs))
+
+# Creates N years for each house, then uses the YearFunction0 to generate a 
+#   random mod factor for each year according to the trend function of 
+#   YearFunction0
+# Clocks are added here to check runtime
+clock_1 <- now()
+muad_dib <- rep(yrs, length(dune$house)) %>% tbl_df() %>% 
+  rename(dyr = value) %>% arrange(dyr) %>% 
+  mutate(house = h_key) %>% arrange(house) %>% 
+  mutate(rev_mod = map_dbl(dyr, YearFunction1))
+clock_2 <- now()
+time_run_mauddib <- clock_2 - clock_1
+time_run_mauddib
+
+# Check to make sure the years are split correctly
+muad_dib[(length(yrs)-5):(length(yrs)+5), ]
+
+# Create a DF containing each houses' typical revenue which can be used 
+#   in the upcoming join
+linker <- dune %>% select(house, typical_rev)
+
+# Using the revenue mod factor generated for each year and the 
+#   generated typical revenue, calculates the year's revenue for each house
+# Then the expenses and determined by the ExpenseFunction call
+leto <- left_join(muad_dib, linker, by = "house") %>% tbl_df() %>% 
+  mutate(revenue = abs(rev_mod) * typical_rev, 
+         expense = map_dbl(revenue, ExpenseFunction), 
+         profit = revenue - expense, 
+         profit_ind = ifelse(profit > 0, 1, 0)
+         ) %>% 
+  select(-rev_mod, -typical_rev) %>% 
+  mutate(milenia = floor(dyr / 1000) * 1000, 
+         century = floor(dyr / 100) * 100, 
+         decade = floor(dyr / 10) * 10)
+leto
+
+# Cleanup
+rm(linker, muad_dib, yrs, h_key)
+ls()
+format(object.size(leto), units = "MB")
+gc(verbose = TRUE)
+
+
+# BUILD YEARS ^^^ -------------------------------------------------------------
+
+# AGGREGATIONS -------------------------------------------------------
+
+# Just a series of data frames that can be used to help analysis of the data
+leto_yr <- leto %>% group_by(dyr) %>% 
+  summarise(revenue = sum(revenue), 
+            expense = sum(expense) 
+  ) %>% 
+  mutate(profit = revenue - expense
+         )
+
+leto_decade <- leto %>% group_by(decade) %>% 
+  summarise(revenue = sum(revenue), 
+            expense = sum(expense) 
+  ) %>% 
+  mutate(profit = revenue - expense
+  )
+
+leto_cent <- leto %>% group_by(century) %>% 
+  summarise(revenue = sum(revenue), 
+            expense = sum(expense) 
+  ) %>% 
+  mutate(profit = revenue - expense
+  )
+
+leto_house <- leto %>% group_by(house) %>% 
+  summarise(revenue = sum(revenue), 
+            expense = sum(expense) 
+  ) %>% 
+  mutate(profit = revenue - expense, 
+         profit_ind = ifelse(profit > 0, 1, 0)
+  )
+
+leto_house_cent <- leto %>% group_by(house, century) %>% 
+  summarise(revenue = sum(revenue), 
+            expense = sum(expense) 
+  ) %>% 
+  mutate(profit = revenue - expense, 
+         profit_ind = ifelse(profit > 0, 1, 0)
+  )
+
+
+# AGGREGATIONS ^^^ -------------------------------------------------------
+
+# VIZ/SUMMARY 2 ------------------------------------------------------
+
+plt1 <- leto_yr %>% 
+  ggplot(aes(x = dyr, y = profit)) + 
+  geom_line(color = "#ff9940") + 
+  theme_bw()
+plt1
+rm(plt1)
+
+plt2 <- leto_decade %>% filter(decade < 4000) %>% 
+  ggplot(aes(x = decade, y = profit)) + 
+  geom_line(color = "#ff9940", size = 1) + 
+  geom_point(color = "#ff9940", shape = 15, size = 2) + 
+  theme_bw()
+plt2
+rm(plt2)
+
+plt3 <- leto_cent %>% filter(century < 4000) %>% 
+  ggplot(aes(x = century, y = profit)) + 
+  geom_line(color = "#ff9940", size = 2) + 
+  geom_point(color = "#ff9940", shape = 15, size = 4) + 
+  theme_bw()
+plt3
+rm(plt3)
+
+plt4 <- leto %>% 
+  filter(house %in% c("Atreides", "Corrino", "Harkonnen")
+         ) %>% 
+  ggplot(aes(x = dyr, y = revenue, color = house)) + 
+  geom_line() + 
+  theme_bw()
+plt4
+rm(plt4)
+
+plt5 <- leto %>% 
+  filter(house %in% c("Atreides", "Corrino", "Harkonnen")
+  ) %>% 
+  ggplot(aes(x = dyr, y = revenue, color = house)) + 
+  geom_smooth() + 
+  theme_bw() 
+plt5
+rm(plt5)
+
+plt6 <- leto_house_cent %>% 
+  filter(century < 4000, house %in% c("Atreides", "Corrino", "Harkonnen")
+         ) %>% 
+  ggplot(aes(x = century, y = profit, fill = house)) + 
+  geom_col() + 
+  theme_bw()
+plt6
+rm(plt6)
+
+# Descriptive stats
+summary(leto_yr[, 2:4])
+summary(leto_house[, 2:4])
+
+
+# VIZ/SUMMARY 2 ^^^ -------------------------------------------------------
+
+# END ---------------------------------------------------------------------
+clock_b <- now()
+time_run_script <- clock_b - clock_a
+time_run_script
+ls()
+gc(verbose = TRUE)
+
+rm(list = ls())
