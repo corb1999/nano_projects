@@ -1,7 +1,7 @@
 #### _____ -----> BAUXITE <----- _____ #####
-# AN R SCRIPT TO TAKE CONFUSION MATRIX VALUES (ORE) TO MAKE A CONFUSION MATRIX (BAUXITE)
-library(ggplot2)
-library(dplyr)
+# AN R SCRIPT TO TAKE CONFUSION MATRIX VALUES (ORE) 
+#   TO MAKE A CONFUSION MATRIX (BAUXITE)
+library(tidyverse)
 
 # USE THIS TO DERIVE MATRIX VALUES FROM A DF
 ore <- c( 
@@ -9,7 +9,7 @@ ore <- c(
   sum(1 == 1 & 1 == 1), # false negatives
   sum(1 == 1 & 1 == 1), # false positives
   sum(1 == 1 & 1 == 1)  # true negatives
-  )
+)
 
 # USE THIS TO MANUALLY ENTER MATRIX VALUES
 ore <- c(20, 10, 180, 1820) 
@@ -24,25 +24,30 @@ bauxite <- matrix(ore,
                                   c("Event Present", "Event Absent")))
 nn <- sum(bauxite)
 accuracy <- (bauxite[1, 1] + bauxite[2, 2]) / nn
+precision <- bauxite[1, 1] / sum(bauxite[1, ])
 sensitivity <- bauxite[1, 1] / sum(bauxite[, 1])
 specificity <- bauxite[2, 2] / sum(bauxite[, 2])
+F1score <- (2 * precision * sensitivity) / (precision + sensitivity)
 ppv <- bauxite[1, 1] / sum(bauxite[1, ])
 npv <- bauxite[2, 2] / sum(bauxite[2, ])
 presence <- sum(bauxite[, 1]) / nn
 absence <- sum(bauxite[, 2]) / nn
 fpr <- bauxite[1, 2] / sum(bauxite[, 2])
 fnr <- bauxite[2, 1] / sum(bauxite[, 1])
-measure <- c(accuracy, 
+measure <- c(accuracy, precision, 
              sensitivity, specificity, 
+             F1score, 
              ppv, npv, 
              fpr, fnr, 
              presence, absence)
-metric <- c("accuracy", 
+metric <- c("accuracy", "precision",  
             "sensitivity", "specificity", 
+            "F1score", 
             "ppv", "npv", 
             "fpr", "fnr", 
             "presence", "absence")
-bresult <- data.frame(metric = as.factor(metric), measure, yorder = c(9:1))
+bresult <- data.frame(metric = as.factor(metric), 
+                      measure, yorder = c(11:1))
 baux_plt1 <- bresult %>% 
   ggplot(aes(x = measure, y = reorder(metric, yorder))) +   
   geom_point(size = 10, color = "#bc204b") + 
@@ -62,4 +67,7 @@ nn
 bauxite
 prop.table(bauxite)
 bresult[, 1:2]
+rm(absence, accuracy, baux_plt1, bauxite, F1score, 
+   fnr, fpr, measure, metric, nn, npv, ore, ppv, 
+   precision, presence, sensitivity, specificity)
 #### _____ ^^^^^ BAUXITE ^^^^^ _____ #####
