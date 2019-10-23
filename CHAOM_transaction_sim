@@ -1,0 +1,357 @@
+# :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+# INTRO ================================
+# v20191022
+# Project: CHOAM TRANSACTION SIMULATION
+# Notes: A simulated DF of transactions
+# INTRO ^^^ ============================
+# :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+# LOAD LIBRARIES ------------------------------------------------------------
+getwd()
+library(tidyverse)
+library(tidylog)
+library(lubridate)
+library(DataExplorer)
+library(reshape2)
+library(grid)
+library(caTools)
+library(ids)
+clock_a <- now()
+options(digits = 2, max.print = 99, tibble.print_max = 25)
+# LOAD LIBRARIES ^^^ ----------------------------------------------------------
+
+# LOAD DATA -----------------------------------------------------------------
+
+clock_1 <- now()
+xx <- read.csv("DUNE_HOUSES.csv")
+clock_2 <- now()
+(time_load_data <- clock_2 - clock_1)
+
+yy <- read.csv("Periodic_Table_Elements.csv")
+
+head(xx)
+houses <- xx %>% 
+  select(surname) %>% mutate(house_key = c(1:nrow(xx)))
+
+# Cleanup
+gc(verbose = TRUE)
+
+# LOAD DATA ^^^ -------------------------------------------------------------
+
+# PLANET LOC 1 ---------------------------------------------------------------------
+
+# Generate 3 random coordinate points for each house
+Xcord <- rnorm(nrow(xx))
+Ycord <- rnorm(nrow(xx))
+Zcord <- rnorm(nrow(xx))
+
+houses <- houses %>% 
+  mutate(Xcord = Xcord, Ycord = Ycord, Zcord = Zcord)
+houses %>% ggplot(aes(x = Xcord, y = Ycord, size = Zcord)) + geom_point()
+rm(Xcord, Ycord, Zcord)
+
+# Tarif rates randomly initialized
+tariff <- sample(seq(0, 0.2, by = 0.01), nrow(xx), replace = TRUE)
+
+# Cluster based on coords
+cluster_data <- houses %>% select(Xcord, Ycord, Zcord)
+
+regions <- kmeans(cluster_data, 4, iter.max = 10, nstart = 1)
+head(regions)
+
+houses <- houses %>% as_tibble() %>% 
+  mutate(region = as.factor(regions$cluster), 
+         region = case_when(region == 1 ~ "Onyx Cluster", 
+                            region == 2 ~ "Gamma System", 
+                            region == 3 ~ "Andromeda Galaxy", 
+                            region == 4 ~ "Deep Space")
+         )
+houses <- houses %>% mutate(tariff = tariff)
+
+houses %>% ggplot(aes(x = Xcord, y = Ycord, color = region)) + 
+  geom_point(size = 2) + theme_bw()
+houses %>% ggplot(aes(x = Xcord, y = Zcord, color = region)) + 
+  geom_point(size = 2) + theme_bw()
+houses %>% ggplot(aes(x = Zcord, y = Ycord, color = region)) + 
+  geom_point(size = 2) + theme_bw()
+table(houses$region)
+rm(cluster_data, regions, tariff)
+
+# Creating two versions that will be needed for the join
+house_loc1 <- houses %>% 
+  rename(surname1 = surname, 
+         Xcord1 = Xcord, 
+         Ycord1 = Ycord, 
+         Zcord1 = Zcord, 
+         region1 = region)
+house_loc2 <- houses %>% 
+  rename(surname2 = surname, 
+         Xcord2 = Xcord, 
+         Ycord2 = Ycord, 
+         Zcord2 = Zcord, 
+         region2 = region, 
+         tariff_rate = tariff)
+rm(xx)
+
+# Distance calc function
+distCalc <- function(a, b, c, d, e, f) {
+  zz <- sqrt((d - a)^2 + (e - b)^2 + (f - c)^2)
+  return(zz)
+}
+
+# Cleanup
+ls()
+gc(verbose = TRUE)
+
+
+# PLANET LOC 1 ^^^ -----------------------------------------------------------------
+
+# Transaction start ------------------------------------------------------
+
+# Generate a transaction key
+t_num <- seq(1, 500000, 1)
+t_key1 <- sample(letters, length(t_num), replace = TRUE)
+t_key2 <- sample(1000:9999, length(t_num), replace = TRUE)
+t_key3 <- sample(1000:9999, length(t_num), replace = TRUE)
+t_key4 <- sample(letters, length(t_num), replace = TRUE)
+t_key5 <- sample(letters, length(t_num), replace = TRUE)
+t_key6 <- sample(letters, length(t_num), replace = TRUE)
+
+t1 <- tibble(t_num, t_key1, t_key2, t_key3, t_key4, t_key5, t_key6) %>% 
+  mutate(t_key = str_c(t_key1, t_key2, t_key3, t_key4, t_key5, t_key6)) %>% 
+  select(t_num, t_key)
+rm(t_num, t_key1, t_key2, t_key3, t_key4, t_key5, t_key6)
+
+nt <- nrow(t1)
+
+# Generate sender and receiver for each transaction
+seller <- sample(1:nrow(houses), nt, replace = TRUE)
+buyer <- sample(1:nrow(houses), nt, replace = TRUE)
+
+traders <- tibble(seller, buyer) %>% 
+  mutate(purchaser = ifelse(seller == buyer, 
+                            buyer + 1, buyer), 
+         purchaser = ifelse(purchaser > nrow(houses), 
+                            5, purchaser)
+         ) %>% 
+  select(seller, purchaser) %>% 
+  rename(buyer = purchaser)
+traders
+sum(traders$seller == traders$buyer)
+rm(seller, buyer)
+
+# Combine t keys and traders
+trades <- cbind(t1, traders) %>% as_tibble()
+trades
+rm(t1, traders)
+
+# Compute joins
+trades1 <- left_join(trades, house_loc1, 
+                     by = c("seller" = "house_key")) %>% 
+  as_tibble()
+trades2 <- left_join(trades1, house_loc2, 
+                     by = c("buyer" = "house_key")) %>% 
+  as_tibble()
+colnames(trades2)
+
+trade <- trades2 %>% 
+  mutate(distance = distCalc(Xcord1, Ycord1, Zcord1, 
+                             Xcord2, Ycord2, Zcord2) * 100)
+colnames(trade)
+trade
+#View(trade[sample(1:nrow(trade), 100, replace = FALSE), ])
+rm(trades, trades1, trades2)
+
+# Cleanup
+format(object.size(trade), units = "MB")
+ls()
+gc(verbose = TRUE)
+
+
+# Transaction start ^^^ ------------------------------------------------------
+
+# Add brokers ------------------------------------------------------------
+
+# Use IDs package to generate some random names and such
+ls("package:ids")
+trade
+
+broker_names1 <- adjective_animal(n = 100, n_adjectives = 1, style = "snake")
+broker_names2 <- rep(sample(broker_names1, 10, replace = FALSE), 5)
+broker_names3 <- rep(sample(broker_names1, 20, replace = FALSE), 5)
+broker_names4 <- rep(sample(broker_names1, 5, replace = FALSE), 10)
+broker_names5 <- rep(sample(broker_names1, 10, replace = FALSE), 10)
+broker_names <- rbind(broker_names1, broker_names2, broker_names3, 
+                      broker_names4, broker_names5)
+length(broker_names)
+dim(broker_names)
+rm(broker_names1, broker_names2, broker_names3, broker_names4, broker_names5)
+broker <- sample(broker_names, nrow(trade), replace = TRUE) %>% 
+  as.data.frame() %>% rename(broker = ".")
+rm(broker_names)
+head(broker$broker)
+dim(broker)
+broker %>% ggplot(aes(x = broker)) + geom_histogram(stat = "count")
+
+# Add the broker into trade
+trade <- cbind(trade, broker) %>% as_tibble()
+colnames(trade)
+
+# Cleanup
+rm(broker)
+
+
+# Add brokers ^^^ ------------------------------------------------------------
+
+# Commodities ---------------------------------------------------------------
+
+# Look at the periodic table of elements
+dim(yy)
+#head(yy)
+#View(yy)
+
+# Clean up the elements list and trim it down
+comodities <- yy %>% as_tibble() %>% 
+  filter(AtomicNumber < 51) %>% 
+  select(AtomicNumber:Phase, Type:NumberOfIsotopes, 
+         -Electronegativity, -MeltingPoint)
+comodities
+colnames(comodities)
+
+# Run a k-means cluster on the elements
+com_data <- comodities %>% select(AtomicNumber, AtomicMass:Group, 
+                                    AtomicRadius:NumberOfIsotopes)
+com_cluster <- kmeans(com_data, centers = 7)
+rm(com_data)
+com_cluster$cluster
+
+comodities <- comodities %>% mutate(miningCo = com_cluster$cluster)
+rm(com_cluster)
+
+# Price formula
+# AtonomicNumber, AtomicMass, Group, AtomicRadius, Number of Isotopes
+comodityPrice <- function(a, b, c, d, e) {
+  zzz <- (a + (b / 2)) * c * d / (e - 1)
+  return(zzz)
+}
+
+comodities <- comodities %>% 
+  mutate(unit_price = comodityPrice(comodities$AtomicNumber, 
+                                    comodities$AtomicMass, 
+                                    comodities$Group, 
+                                    comodities$AtomicRadius, 
+                                    comodities$NumberOfIsotopes), 
+         inverse_weight = c(nrow(comodities):1) / 100, 
+         miningCo = case_when(miningCo == 1 ~ "Morir", 
+                              miningCo == 2 ~ "Entender", 
+                              miningCo == 3 ~ "Montar", 
+                              miningCo == 4 ~ "Dormir", 
+                              miningCo == 5 ~ "Almorzar", 
+                              miningCo == 6 ~ "Saber", 
+                              miningCo == 7 ~ "Odiar"
+                              )
+         )
+comodities %>% ggplot(aes(x = unit_price)) + geom_histogram()
+summary(comodities$unit_price)
+
+# Generating the comodities traded in each transaction
+elements <- sample(comodities$AtomicNumber, size = nrow(trade), replace = TRUE, 
+               prob = comodities$inverse_weight)
+volume <- ceiling(abs(rnorm(nrow(trade))) * 100)
+
+# Remove columns from comodoties table before join
+comodities <- comodities %>% select(-inverse_weight)
+
+# Bring in the elements purchased and the traded volume
+trade <- cbind(trade, elements, volume) %>% as_tibble()
+
+# Perform join to bring in the price and name and mining co
+trade <- left_join(trade, comodities, by = c("elements" = "AtomicNumber")) %>% 
+  select(-elements, -Element, -(AtomicMass:NumberOfIsotopes))
+
+# Cleanup
+rm(elements, volume)
+ls()
+gc(verbose = TRUE)
+
+
+# Commodities ^^^ ---------------------------------------------------------------
+
+# Time -----------------------------------------------------------------
+
+a_years <- sample(3000:3999, nrow(trade), replace = TRUE)
+a_months <- sample(1:12, nrow(trade), replace = TRUE)
+t_time <- cbind(a_years, a_months) %>% as_tibble() %>% 
+  mutate(transaction_time = ymd(str_c(a_years, a_months, "01", sep = "-"))) %>% 
+  arrange(transaction_time) %>% select(transaction_time)
+
+trade <- trade %>% mutate(transaction_time = t_time$transaction_time, 
+                          yr = year(transaction_time), 
+                          mnth = month(transaction_time), 
+                          decade = floor(year(transaction_time) / 10) * 10, 
+                          century = floor(year(transaction_time) / 100) * 100
+                          )
+
+# Cleanup
+rm(a_years, a_months, t_time)
+
+
+# Time ^^^ -----------------------------------------------------------------
+
+# Final table build ---------------------------------------------------
+
+# Total transasction price calculation
+# 2% is brokerage fee, 5% is markup from the mining company
+transaction_price <- function(unit_price, volume, distance, 
+                              tariff_rate) {
+  zz <- unit_price * volume * distance * (1 + tariff_rate) * 
+    (1.02) * (1.05)
+  return(zz)
+}
+
+# Calculate the price of each trade
+trade <- trade %>% mutate(transaction_price = transaction_price(
+  unit_price, volume, distance, tariff_rate))
+trade %>% ggplot(aes(x = transaction_price)) + 
+  geom_histogram(bins = 30) + 
+  theme_bw()
+
+# Random fraud indicator for spice
+fraud <- sample(c(0, 1), size = nrow(trade), 
+                replace = TRUE, prob = c(0.985, 0.015))
+table(fraud)
+trade <- trade %>% mutate(fraud_ind = fraud)
+
+# Cleanup
+rm(transaction_price, fraud)
+ls()
+gc(verbose = TRUE)
+
+  
+# Final table build ^^^ ---------------------------------------------------
+
+# Export/write --------------------------------------------------------
+
+#write.csv(trade, file = "dune_transaction_sim.csv", row.names = FALSE)
+
+# Export/write ^^^ --------------------------------------------------------
+
+# END ====================================================================
+clock_b <- now()
+time_run_script <- clock_b - clock_a
+time_run_script
+fileSnapshot()
+ls()
+gc(verbose = TRUE)
+
+#rm(list = ls())
+
+# END ^^^ ====================================================================
+
+# APPENDIX =====================================================
+
+
+# APPENDIX ^^^ =====================================================
+
+# ps ============================================================
+# 
