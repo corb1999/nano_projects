@@ -1,0 +1,235 @@
+# :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+# INTRO ================================
+# v20191026
+# Author: CORB
+# Project: 
+# Notes: 
+# INTRO ^^^ ============================
+# :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+# LOAD LIBRARIES ------------------------------------------------------------
+getwd()
+library(tidyverse)
+library(tidylog)
+library(lubridate)
+library(DataExplorer)
+library(reshape2)
+library(grid)
+library(caTools)
+(clock_a <- now())
+options(digits = 2, max.print = 99, tibble.print_max = 25)
+# LOAD LIBRARIES ^^^ ----------------------------------------------------------
+
+# FUNCTIONS 1 -----------------------------------------------------------------
+
+sizer <- function(x) {
+  aaa <- format(object.size(x), "MB")
+  return(aaa)
+}
+
+trash <- function(x) {
+  gc(verbose = TRUE)
+}
+
+viewer <- function(x) {
+  if (is.data.frame(x) == FALSE) {
+    print("Error, insert a dataframe")
+  } else {
+    View(x[sample(1:nrow(x), 100), ])
+  }
+}
+
+# FUNCTIONS 1 ^^^ -----------------------------------------------------------------
+
+# LOAD DATA -----------------------------------------------------------------
+
+clock_1 <- now()
+xx <- read.csv("", stringsAsFactors = FALSE)
+clock_2 <- now()
+(time_load_data_1 <- clock_2 - clock_1)
+
+clock_1 <- now()
+yy <- read.csv("", stringsAsFactors = FALSE)
+clock_2 <- now()
+(time_load_data_2 <- clock_2 - clock_1)
+
+# Dimensions
+dim(xx)
+colnames(xx)
+plot_intro(xx)
+viewer(xx)
+
+# NA overview
+nrow(xx)
+xx %>% as_tibble() %>% 
+  mutate_all(is.na) %>% summarise_all(sum) %>% 
+  t()
+
+# Cleanup
+sizer(xx)
+ls()
+trash()
+
+# LOAD DATA ^^^ -------------------------------------------------------------
+
+# CLEAN 1 ---------------------------------------------------------------------
+
+# DF cleanup round 1
+df <- xx %>% as_tibble()
+
+
+
+# Cleanup
+rm(xx)
+sizer(df)
+ls()
+trash()
+
+# CLEAN 1 ^^^ -----------------------------------------------------------------
+
+# EDA 1 ---------------------------------------------------------------
+
+# plt1
+df %>% ggplot()
+
+
+
+
+# Cleanup
+sizer(df)
+ls()
+trash()
+
+# EDA 1 ^^^ ---------------------------------------------------------------
+
+# END ====================================================================
+clock_b <- now()
+(time_run_script <- clock_b - clock_a)
+ls()
+trash()
+
+#rm(list = ls())
+
+# END ^^^ ====================================================================
+
+# ps ------------------------------------------------------------------------
+# 
+
+# APPENDIX =====================================================
+
+# MULTIPLOT =================================================================
+# Multiple plot function
+# via http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  numPlots = length(plots)
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  if (numPlots==1) {
+    print(plots[[1]])
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+
+# MULTIPLOT ^^^ ================================================================
+
+# BAUXITE =======================================================
+# Takes two 0/1 vectors of targets/predictions to create
+#   a confusion matrix and calculates key metrics
+bauxite <- function(targetV, predictionV) {
+  if (max(targetV) > 1 | max(predictionV) > 1 | 
+      min(targetV) < 0 | min(predictionV) < 0 | 
+      length(targetV) != length(predictionV)
+  ) {
+    print("Error: Invalid vectors for 2x2 confusion matrix")
+  } else {
+    # RAW MATERIAL FOR CONFUSION MATRIX
+    ore <- c( 
+      sum(targetV == 1 & predictionV == 1), # true positives
+      sum(targetV == 1 & predictionV == 0), # false negatives
+      sum(targetV == 0 & predictionV == 1), # false positives
+      sum(targetV == 0 & predictionV == 0)  # true negatives
+    )
+    # CONFUSION MATRIX
+    bauxite <- matrix(ore, 
+                      nrow = 2, ncol = 2, 
+                      dimnames = list(c("Positive Test", "Negative Test"), 
+                                      c("Event Present", "Event Absent")))
+    # MEASUREMENTS
+    nn <- sum(bauxite)
+    accuracy <- (bauxite[1, 1] + bauxite[2, 2]) / nn
+    precision <- bauxite[1, 1] / sum(bauxite[1, ])
+    sensitivity <- bauxite[1, 1] / sum(bauxite[, 1])
+    specificity <- bauxite[2, 2] / sum(bauxite[, 2])
+    F1score <- (2 * precision * sensitivity) / (precision + sensitivity)
+    ppv <- bauxite[1, 1] / sum(bauxite[1, ])
+    npv <- bauxite[2, 2] / sum(bauxite[2, ])
+    presence <- sum(bauxite[, 1]) / nn
+    absence <- sum(bauxite[, 2]) / nn
+    fpr <- bauxite[1, 2] / sum(bauxite[, 2])
+    fnr <- bauxite[2, 1] / sum(bauxite[, 1])
+    measure <- c(accuracy, precision, 
+                 sensitivity, specificity, 
+                 F1score, 
+                 ppv, npv, 
+                 fpr, fnr, 
+                 presence, absence)
+    metric <- c("Accuracy", "Precision",  
+                "Sensitivity", "Specificity", 
+                "F1score", 
+                "PPV", "NPV", 
+                "FPR", "FNR", 
+                "Presence", "Absence")
+    bresult <- data.frame(metric = as.factor(metric), 
+                          measure, yorder = c(11:1))
+    # OUTPUT
+    return(bresult)
+  }
+}
+
+# Plot function for the metrics above ::::::::::::::::::::::::::::::
+bauxitePLT <- function(bresult) {
+  bplt1 <- bresult %>% 
+    ggplot(aes(x = measure, y = reorder(metric, yorder))) +   
+    geom_point(size = 10, color = "#bc204b") + 
+    geom_label(aes(label = paste0(floor(measure * 100), "%")), 
+               hjust = "left") + 
+    scale_x_continuous(limits = c(0, 1), 
+                       breaks = c(seq(0, 1, 0.1)), 
+                       name = "", 
+                       labels = scales::percent, 
+                       position = "top") + 
+    theme_bw() + 
+    labs(title = "BAUXITE Confusion Matrix Results") + 
+    ylab("Confusion Matrix Measurement")
+  return(bplt1)
+}
+# BAUXITE ^^^ =======================================================
