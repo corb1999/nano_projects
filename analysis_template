@@ -17,7 +17,8 @@ library(reshape2)
 library(grid)
 library(caTools)
 (clock_a <- now())
-options(digits = 2, max.print = 99, tibble.print_max = 25)
+options(digits = 2, max.print = 99, 
+  tibble.print_max = 25, scipen = 999)
 # LOAD LIBRARIES ^^^ ----------------------------------------------------------
 
 # FUNCTIONS 1 -----------------------------------------------------------------
