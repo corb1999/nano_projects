@@ -36,7 +36,11 @@ viewer <- function(x) {
   if (is.data.frame(x) == FALSE) {
     print("Error, insert a dataframe")
   } else {
-    View(x[sample(1:nrow(x), 100), ])
+    if(nrow(x) < 95) {
+      View(x[sample(1:nrow(x), floor(nrow(x) * 0.5)), ])
+    } else {
+      View(x[sample(1:nrow(x), 100), ])
+      }
   }
 }
 
