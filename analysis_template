@@ -1,6 +1,6 @@
 # :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 # INTRO ================================
-# v20191026
+# v20191102
 # Author: CORB
 # Project: 
 # Notes: 
@@ -16,7 +16,7 @@ library(DataExplorer)
 library(reshape2)
 library(grid)
 library(caTools)
-(clock_a <- now())
+(clock_a <- Sys.time())
 options(digits = 2, max.print = 99, 
   tibble.print_max = 25, scipen = 999)
 # LOAD LIBRARIES ^^^ ----------------------------------------------------------
@@ -48,15 +48,13 @@ viewer <- function(x) {
 
 # LOAD DATA -----------------------------------------------------------------
 
-clock_1 <- now()
+clock_1 <- Sys.time()
 xx <- read.csv("", stringsAsFactors = FALSE)
-clock_2 <- now()
-(time_load_data_1 <- clock_2 - clock_1)
+(time_load_data_1 <- Sys.time() - clock_1)
 
-clock_1 <- now()
+clock_1 <- Sys.time()
 yy <- read.csv("", stringsAsFactors = FALSE)
-clock_2 <- now()
-(time_load_data_2 <- clock_2 - clock_1)
+(time_load_data_2 <- Sys.time() - clock_1)
 
 # Dimensions
 dim(xx)
@@ -108,8 +106,7 @@ trash()
 # EDA 1 ^^^ ---------------------------------------------------------------
 
 # END ====================================================================
-clock_b <- now()
-(time_run_script <- clock_b - clock_a)
+(time_run_script <- Sys.time() - clock_a)
 ls()
 trash()
 
