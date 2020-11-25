@@ -1,0 +1,50 @@
+# draw roads and rivers on a map -----
+library(tidyverse)
+library(osmdata)
+library(sf)
+
+# bbx <- getbb("Rockingham, VT")
+min_lon <- -72.47
+max_lon <- -72.42
+min_lat <- 43.11
+max_lat <- 43.15
+bbx <- rbind(x = c(min_lon, max_lon), y = c(min_lat, max_lat))
+colnames(bbx) <- c("min","max")
+bbx
+
+# query osm data for the bbx
+df_map1 <- bbx %>% opq() %>%
+  add_osm_feature(key = "highway", 
+                  value = c("motorway", "trunk", 
+                            # residentials ::::::::::::::::::
+                            "residential", "living_street",
+                            "service","unclassified",
+                            "pedestrian", "footway",
+                            "track","path",
+                            # other highway roads ::::::::::::
+                            "motorway_link",
+                            "trunk_link","primary_link",
+                            "secondary_link", "tertiary_link", 
+                            "primary", "secondary", "tertiary")) %>% osmdata_sf()
+
+df_map2 <- bbx %>% opq() %>%
+  add_osm_feature(key = "waterway", value = c("river")) %>% osmdata_sf()
+
+# plot streets and river
+ggplot() + 
+  geom_sf(data = df_map2$osm_lines,
+          color = "#40a8c4",
+          size = 1.3) + 
+  geom_sf(data = df_map1$osm_lines,
+          color = "white",
+          size = 0.25) + 
+  coord_sf(xlim = c(bbx[1, 1], bbx[1, 2]),
+           ylim = c(bbx[2, 1], bbx[2, 2]),
+           expand = FALSE) + 
+  geom_point(aes(x = -72.446666, y = 43.1353384), color = "red", size = 3) + 
+  annotate("text", x = -72.432, y = 43.147, color = "white", size = 3.5, 
+           label = "Bellows Falls, VT") + 
+  theme_void() +
+  theme(legend.position = "none",
+        panel.background = element_rect(fill = "#335d2d"), 
+        plot.background = element_rect(fill = "#335d2d"))
