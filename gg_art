@@ -30,3 +30,21 @@ df %>%
   theme_void() + 
   theme(legend.position = "none", 
         plot.background = element_rect(fill = "#f1f6f9", color = "#f1f6f9")) 
+
+# ripcurl untangld -----
+# 2020-11-25 20:01:06 EST
+library(tidyverse)
+df <- tibble(aa = seq(from = 1, to = 500, by = 1), 
+             xx = aa, yy = sin(aa) * cos(aa))
+
+df %>% 
+  ggplot() + 
+  geom_curve(aes(x = xx, y = 0, 
+                 color = abs(yy), 
+                 xend = xx, yend = yy), 
+             curvature = 1, lineend = "round", size = 1) + 
+  scale_color_viridis_c(option = "plasma") +
+  theme_void() + 
+  theme(legend.position = "none", 
+        plot.background = element_rect(fill = "#848ccf", color = "#848ccf")) + 
+  xlim(-60, nrow(df) + 60)
