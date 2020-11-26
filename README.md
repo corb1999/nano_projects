@@ -11,3 +11,4 @@ Nothing special, just a place to house a few microscopic projects, mostly R scri
 - CHOAM Transactions = R script to simulate fictional transactions/trades between Dune's fictional houses
 - Corb77 = a custom R plot theme inspired by cyberpunk 2077 art style
 - Zill Rent Analysis = R script analyzing the Zillow Rent Price dataset from kaggle
+- GGPLOT art attempts
