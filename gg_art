@@ -1,0 +1,32 @@
+# gg art experiments ==============================================
+
+# solar wind, from aschinchon -----
+# 2020-11-24 15:10:04 EST
+library(tidyverse)
+aa <- tibble(t = (1:2300)*2.4432, 
+             x = sin(t), y = cos(t))
+aa %>% 
+  mutate(zz = ifelse(y > 0, TRUE, FALSE)) %>% 
+  ggplot(aes(x = x*t, y = y*t, color = zz)) + 
+  geom_point(size = 58, alpha = 0.1, shape = 13) + 
+  coord_equal() + 
+  scale_color_manual(values = c("red", "orange")) + 
+  theme_void() + 
+  theme(legend.position = "none")
+
+# rainbow radar curves -----
+# 2020-11-25 19:36:52 EST
+library(tidyverse)
+df <- tibble(aa = seq(from = 1, to = 250, by = 1), 
+             xx = aa, yy = aa, zz = sin(aa))
+df %>% 
+  ggplot() + 
+  geom_curve(aes(x = xx, y = 0,
+                 color = zz, 
+                 xend = 0, yend = yy),
+             curvature = 1) + 
+  scale_color_viridis_c(option = "D") + 
+  coord_equal() +
+  theme_void() + 
+  theme(legend.position = "none", 
+        plot.background = element_rect(fill = "#f1f6f9", color = "#f1f6f9")) 
