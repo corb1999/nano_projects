@@ -1,0 +1,16 @@
+# I shouldn't have to say this but this is not secure or even decent op-sec
+set.seed()
+asdf <- function(x) {
+  paste0(sample(letters, 1), 
+         sample(state.abb, 1), 
+         sample(letters, 1), 
+         rpois(1, 5), 
+         rbinom(1, 25, 0.5), 
+         floor(rexp(1, rate = 1) * 10), 
+         sample(c("!", "?", "#"), 1), 
+         sample(c(colnames(EuStockMarkets)), 1), 
+         sample(c(colnames(quakes)), 1), 
+         sample(c(1:10000), 1), 
+         as.roman(sample(c(1:50), 1)))}
+# pick one
+lapply(c(1:10), asdf)
